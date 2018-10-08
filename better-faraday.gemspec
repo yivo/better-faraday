@@ -3,11 +3,11 @@
 
 Gem::Specification.new do |s|
   s.name                  = "better-faraday"
-  s.version               = "1.0.0"
+  s.version               = "1.0.1"
   s.author                = "Yaroslav Konoplov"
   s.email                 = "eahome00@gmail.com"
   s.summary               = "Extends Faraday with useful features."
-  s.description           = "Extends Faraday (popular Ruby HTTP client) with useful features without breaking anything."
+  s.description           = "A gem extending Faraday (popular Ruby HTTP client) with useful features without breaking anything."
   s.homepage              = "https://github.com/yivo/better-faraday"
   s.license               = "MIT"
   s.files                 = `git ls-files -z`.split("\x0")
