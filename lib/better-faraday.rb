@@ -1,8 +1,11 @@
 # encoding: UTF-8
 # frozen_string_literal: true
 
-require "faraday"
 require "json"
+require "faraday"
+require "faraday/error"
+require "faraday/options"
+require "faraday/response"
 
 Module.new do
   def run_request(method, url, body, headers, &block)
@@ -15,12 +18,23 @@ module Faraday
     attr_reader :request_body
   end
 
+  class Error
+    attr_reader :response
+  end
+
   class Response
     def assert_2xx!
       return self if status >= 200 && status <= 299
-      raise Faraday::HTTP422, describe if status == 422
-      raise Faraday::HTTP4xx, describe if status >= 400 && status <= 499
-      raise Faraday::Error, describe
+      klass = if status == 422
+        Faraday::HTTP422
+      elsif status >= 400 && status <= 499
+        Faraday::HTTP4xx
+      else
+        Faraday::Error
+      end
+      error = klass.new(describe)
+      error.instance_variable_set(:@response, self)
+      raise error
     end
 
     alias ok! assert_2xx! # Short name.
