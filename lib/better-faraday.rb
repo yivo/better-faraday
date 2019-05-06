@@ -8,6 +8,7 @@ require "faraday/options"
 require "faraday/response"
 require "active_support/core_ext/object/deep_dup"
 require "active_support/core_ext/string/filters"
+require "active_support/core_ext/string/inflections"
 
 Module.new do
   def run_request(method, url, body, headers, &block)
@@ -22,18 +23,22 @@ module Faraday
 
   class Error
     attr_reader :response
+
+    def inspect
+      super.gsub(/\s*\(\s*\)\z/)
+    end
   end
 
   class Response
     def assert_2xx!
       return self if status >= 200 && status <= 299
-      klass = if status == 422
-        Faraday::HTTP422
-      elsif status >= 400 && status <= 499
-        Faraday::HTTP4xx
+
+      klass = if status >= 400 && status <= 499
+        "Faraday::HTTP#{status}".safe_constantize || Faraday::HTTP4xx
       else
         Faraday::Error
       end
+
       error = klass.new(describe)
       error.instance_variable_set(:@response, self)
       raise error
@@ -91,13 +96,13 @@ module Faraday
     end
   end
 
-  class HTTP4xx < Error
-
-  end
-
-  class HTTP422 < HTTP4xx
-
-  end
+  class HTTP4xx < Error; end
+  class HTTP400 < HTTP4xx; end
+  class HTTP401 < HTTP4xx; end
+  class HTTP403 < HTTP4xx; end
+  class HTTP404 < HTTP4xx; end
+  class HTTP422 < HTTP4xx; end
+  class HTTP429 < HTTP4xx; end
 
   class << self
     attr_accessor :secrets
