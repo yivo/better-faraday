@@ -25,7 +25,7 @@ module Faraday
     attr_reader :response
 
     def inspect
-      super.gsub(/\s*\(\s*\)\z/)
+      super.gsub(/\s*\(\s*\)\s*\z/, "")
     end
   end
 
