@@ -3,7 +3,7 @@
 
 Gem::Specification.new do |s|
   s.name                  = "better-faraday"
-  s.version               = "1.0.5"
+  s.version               = "1.0.6"
   s.author                = "Yaroslav Konoplov"
   s.email                 = "eahome00@gmail.com"
   s.summary               = "Extends Faraday with useful features."
