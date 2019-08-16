@@ -31,9 +31,9 @@ module Faraday
 
   class Response
     def assert_2xx!
-      return self if status >= 200 && status <= 299
+      return self if status_2xx?
 
-      klass = if status >= 400 && status <= 499
+      klass = if status_4xx?
         "Faraday::HTTP#{status}".safe_constantize || Faraday::HTTP4xx
       else
         Faraday::Error
@@ -46,6 +46,22 @@ module Faraday
 
     alias ok! assert_2xx! # Short name.
     alias assert_success! assert_2xx! # Compatibility.
+
+    def status_2xx?
+      status >= 200 && status <= 299
+    end
+
+    def status_3xx?
+      status >= 300 && status <= 399
+    end
+
+    def status_4xx?
+      status >= 400 && status <= 499
+    end
+
+    def status_5xx?
+      status >= 500 && status <= 599
+    end
 
     def describe
       request_headers  = __protect_data(env.request_headers.deep_dup)
