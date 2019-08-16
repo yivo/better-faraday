@@ -48,11 +48,10 @@ module Faraday
     alias assert_success! assert_2xx! # Compatibility.
 
     def describe
-      request_headers  = env.request_headers.deep_dup
-      request_json     = parse_json(env.request_body)
-      response_headers = ::Hash === env.response_headers ? env.response_headers.deep_dup : {}
-      response_json    = parse_json(env.body)
-      [request_headers, request_json, response_headers, response_json].compact.each(&method(:protect!))
+      request_headers  = __protect_data(env.request_headers.deep_dup)
+      request_json     = __protect_data(parse_json(env.request_body))
+      response_headers = __protect_data(::Hash === env.response_headers ? env.response_headers.deep_dup : {})
+      response_json    = __protect_data(__parse_json(env.body))
 
       [ "",
         "-- #{status} #{reason_phrase} --",
@@ -80,18 +79,23 @@ module Faraday
 
   private
 
-    def parse_json(json)
-      data = ::JSON.parse(::String === json ? json : json.to_s)
+    def __parse_json(json)
+      return nil unless ::String === json
+      data = ::JSON.parse(json)
       data if ::Hash === data || ::Array === data
     rescue ::JSON::ParserError
       nil
     end
 
-    def protect!(x)
-      return x.map!(&method(:protect!)) if ::Array === x
-      x.keys.each do |k|
-        x[k] = "SECRET" if k.respond_to?(:=~) && Faraday.secrets.any? { |s| k =~ s }
-        protect!(x[k]) if ::Hash === x[k]
+    def __protect_data(data)
+      return data.map(&method(:__protect_data)) if ::Array === data
+      return data unless ::Hash === data
+      data.each_with_object({}) do |(key, value), memo|
+        memo[key] = if key.respond_to?(:=~) && Faraday.secrets.any? { |s| key =~ s }
+          "SECRET"
+        else
+          __protect_data(value)
+        end
       end
     end
   end
