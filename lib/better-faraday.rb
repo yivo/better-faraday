@@ -65,7 +65,7 @@ module Faraday
 
     def describe
       request_headers  = __protect_data(env.request_headers.deep_dup)
-      request_json     = __protect_data(parse_json(env.request_body))
+      request_json     = __protect_data(__parse_json(env.request_body))
       response_headers = __protect_data(::Hash === env.response_headers ? env.response_headers.deep_dup : {})
       response_json    = __protect_data(__parse_json(env.body))
 
