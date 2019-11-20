@@ -11,14 +11,21 @@ require "active_support/core_ext/string/filters"
 require "active_support/core_ext/string/inflections"
 
 Module.new do
-  def run_request(method, url, body, headers, &block)
-    super.tap { |response| response.env.instance_variable_set(:@request_body, body) }
+  def call(env)
+    env.instance_variable_set(:@request_sent_at, Time.now.utc)
+    super
   end
-end.tap { |m| Faraday::Connection.send(:prepend, m) }
+
+  def save_response(env, status, body, headers = nil, reason_phrase = nil)
+    env.instance_variable_set(:@response_received_at, Time.now.utc)
+    env.instance_variable_set(:@request_body, env.body.respond_to?(:read) ? env.body.read : env.body)
+    super
+  end
+end.tap { |m| Faraday::Adapter.send(:prepend, m) }
 
 module Faraday
   class Env
-    attr_reader :request_body
+    attr_reader :request_body, :request_sent_at, :response_received_at
   end
 
   class Error
@@ -39,7 +46,7 @@ module Faraday
         Faraday::Error
       end
 
-      error = klass.new(describe)
+      error = klass.new("\n#{describe}")
       error.instance_variable_set(:@response, self)
       raise error
     end
@@ -69,8 +76,9 @@ module Faraday
       response_headers = __protect_data(::Hash === env.response_headers ? env.response_headers.deep_dup : {})
       response_json    = __protect_data(__parse_json(env.body))
 
-      [ "",
-        "-- #{status} #{reason_phrase} --",
+      lines = [
+        "",
+        "-- #{status} #{reason_phrase} --".upcase,
         "",
         "-- Request URL --",
         env.url.to_s,
@@ -79,18 +87,33 @@ module Faraday
         env.method.to_s.upcase,
         "",
         "-- Request headers --",
-        ::JSON.generate(request_headers).yield_self { |t| t.truncate(1024, omission: "... (truncated, full length: #{t.length})") },
+        ::JSON.generate(request_headers).yield_self { |t| t.truncate(2048, omission: "... (truncated, full length: #{t.length})") },
         "",
         "-- Request body --",
         (request_json ? ::JSON.generate(request_json) : env.request_body.to_s).yield_self { |t| t.truncate(1024, omission: "... (truncated, full length: #{t.length})") },
         "",
+        "-- Request sent at --",
+        env.request_sent_at.strftime("%Y-%m-%d %H:%M:%S.%2N") + " UTC",
+        "",
         "-- Response headers --",
-        (response_headers ? ::JSON.generate(response_headers) : env.response_headers.to_s).yield_self { |t| t.truncate(1024, omission: "... (truncated, full length: #{t.length})") },
+        (response_headers ? ::JSON.generate(response_headers) : env.response_headers.to_s).yield_self { |t| t.truncate(2048, omission: "... (truncated, full length: #{t.length})") },
         "",
         "-- Response body --",
-        (response_json ? ::JSON.generate(response_json) : env.body.to_s).yield_self { |t| t.truncate(1024, omission: "... (truncated, full length: #{t.length})") },
-        ""
-      ].join("\n")
+        (response_json ? ::JSON.generate(response_json) : env.body.to_s).yield_self { |t| t.truncate(2048, omission: "... (truncated, full length: #{t.length})") }
+      ]
+
+      if env.response_received_at
+        lines.concat [
+          "",
+          "-- Response received at --",
+          env.response_received_at.strftime("%Y-%m-%d %H:%M:%S.%2N") + " UTC",
+          "",
+          "-- Response received in --",
+          "#{((env.response_received_at.to_f - env.request_sent_at.to_f) * 1000.0).round(2)}ms"
+        ]
+      end
+
+      lines.join("\n")
     end
 
   private
