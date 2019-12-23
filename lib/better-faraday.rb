@@ -71,10 +71,19 @@ module Faraday
     end
 
     def describe
-      request_headers  = __protect_data(env.request_headers.deep_dup)
-      request_json     = __protect_data(__parse_json(env.request_body))
-      response_headers = __protect_data(::Hash === env.response_headers ? env.response_headers.deep_dup : {})
-      response_json    = __protect_data(__parse_json(env.body))
+      request_headers = __protect_data(env.request_headers.deep_dup)
+
+      if env.request_headers["Content-Type"].to_s.match?(/\bapplication\/json\b/)
+        request_json = __protect_data(__parse_json(env.request_body.dup))
+      end
+
+      if env.response_headers
+        response_headers = __protect_data(env.response_headers.deep_dup)
+      end
+
+      if env.response_headers && env.response_headers["Content-Type"].to_s.match?(/\bapplication\/json\b/)
+        response_json = __protect_data(__parse_json(env.body.dup))
+      end
 
       lines = [
         "",
@@ -89,17 +98,43 @@ module Faraday
         "-- Request headers --",
         ::JSON.generate(request_headers).yield_self { |t| t.truncate(2048, omission: "... (truncated, full length: #{t.length})") },
         "",
+
         "-- Request body --",
-        (request_json ? ::JSON.generate(request_json) : env.request_body.to_s).yield_self { |t| t.truncate(1024, omission: "... (truncated, full length: #{t.length})") },
+        if request_json
+          ::JSON.generate(request_json)
+        else
+          body = env.request_body.to_s.dup
+          if body.encoding.name == "ASCII-8BIT"
+            "Binary (#{body.size} bytes)"
+          else
+            body
+          end
+        end.yield_self { |t| t.truncate(1024, omission: "... (truncated, full length: #{t.length})") },
         "",
+
         "-- Request sent at --",
         env.request_sent_at.strftime("%Y-%m-%d %H:%M:%S.%2N") + " UTC",
         "",
+
         "-- Response headers --",
-        (response_headers ? ::JSON.generate(response_headers) : env.response_headers.to_s).yield_self { |t| t.truncate(2048, omission: "... (truncated, full length: #{t.length})") },
+        if response_headers
+          ::JSON.generate(response_headers)
+        else
+          env.response_headers.to_s
+        end.yield_self { |t| t.truncate(2048, omission: "... (truncated, full length: #{t.length})") },
         "",
+
         "-- Response body --",
-        (response_json ? ::JSON.generate(response_json) : env.body.to_s).yield_self { |t| t.truncate(2048, omission: "... (truncated, full length: #{t.length})") }
+        if response_json
+          ::JSON.generate(response_json)
+        else
+          body = env.body.to_s.dup
+          if body.encoding.name == "ASCII-8BIT"
+            "Binary (#{body.size} bytes)"
+          else
+            body
+          end
+        end.yield_self { |t| t.truncate(2048, omission: "... (truncated, full length: #{t.length})") }
       ]
 
       if env.response_received_at
@@ -113,7 +148,7 @@ module Faraday
         ]
       end
 
-      lines.join("\n")
+      lines.join("\n") + "\n"
     end
 
   private
