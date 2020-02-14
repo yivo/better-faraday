@@ -165,7 +165,7 @@ module Faraday
       return data.map(&method(:__protect_data)) if ::Array === data
       return data unless ::Hash === data
       data.each_with_object({}) do |(key, value), memo|
-        memo[key] = if key.respond_to?(:=~) && Faraday.secrets.any? { |s| key =~ s }
+        memo[key] = if key.to_s.underscore.tr("_", " ").yield_self { |k| Faraday.secrets.any? { |s| k.match?(s) } }
           "SECRET"
         else
           __protect_data(value)
@@ -186,5 +186,5 @@ module Faraday
     attr_accessor :secrets
   end
 
-  self.secrets = [/\bpass(?:word|phrase)\b/i, /\bauthorization\b/i, /\bsecret\b/i, /\b(:?access?)token\b/i]
+  self.secrets = [/\bpass(?:word|phrase)\b/i, /\bauthorization\b/i, /\bsecret\b/i, /\b(:?access)?token\b/i]
 end
