@@ -151,6 +151,8 @@ module Faraday
       lines.join("\n") + "\n"
     end
 
+    alias inspect describe
+
   private
 
     def __parse_json(json)
