@@ -167,7 +167,7 @@ module Faraday
       return data.map(&method(:__protect_data)) if ::Array === data
       return data unless ::Hash === data
       data.each_with_object({}) do |(key, value), memo|
-        memo[key] = if key.to_s.underscore.tr("_", " ").yield_self { |k| Faraday.secrets.any? { |s| k.match?(s) } }
+        memo[key] = if key.to_s.underscore.tr("_", " ").yield_self { |k| Faraday::Inspection.secrets.any? { |s| k.match?(s) } }
           "SECRET"
         else
           __protect_data(value)
@@ -184,9 +184,21 @@ module Faraday
   class HTTP422 < HTTP4xx; end
   class HTTP429 < HTTP4xx; end
 
-  class << self
-    attr_accessor :secrets
+  module Inspection
+    class << self
+      attr_accessor :secrets
+    end
+
+    self.secrets = [/\bpass(?:word|phrase)\b/i, /\bauthorization\b/i, /\bsecret\b/i, /\b(:?access)?token\b/i]
   end
 
-  self.secrets = [/\bpass(?:word|phrase)\b/i, /\bauthorization\b/i, /\bsecret\b/i, /\b(:?access)?token\b/i]
+  class << self
+    def secrets
+      Inspection.secrets
+    end
+
+    def secrets=(value)
+      Inspection.secrets = value
+    end
+  end
 end

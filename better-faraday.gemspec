@@ -3,7 +3,7 @@
 
 Gem::Specification.new do |s|
   s.name                  = "better-faraday"
-  s.version               = "1.1.4"
+  s.version               = "1.2.0"
   s.author                = "Yaroslav Konoplov"
   s.email                 = "eahome00@gmail.com"
   s.summary               = "Extends Faraday with useful features."
@@ -13,6 +13,6 @@ Gem::Specification.new do |s|
   s.files                 = `git ls-files -z`.split("\x0")
   s.test_files            = `git ls-files -z -- {test,spec,features}/*`.split("\x0")
   s.require_paths         = ["lib"]
-  s.add_dependency "faraday", ">= 0.17", "< 2.0"
+  s.add_dependency "faraday", ">= 1.0", "< 2.0"
   s.add_dependency "activesupport", ">= 4.0", "< 7.0"
 end
