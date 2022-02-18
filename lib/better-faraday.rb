@@ -104,7 +104,7 @@ module Faraday
           ::JSON.generate(request_json)
         else
           body = env.request_body.to_s.dup
-          if body.encoding.name == "ASCII-8BIT"
+          if body.encoding == Encoding::BINARY
             "Binary (#{body.size} bytes)"
           else
             body
@@ -129,7 +129,7 @@ module Faraday
           ::JSON.generate(response_json)
         else
           body = env.body.to_s.dup
-          if body.encoding.name == "ASCII-8BIT"
+          if body.encoding == Encoding::BINARY
             "Binary (#{body.size} bytes)"
           else
             body
