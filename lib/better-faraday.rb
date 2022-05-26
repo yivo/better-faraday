@@ -113,7 +113,9 @@ module Faraday
         response_body_bytes_count = response_body.bytesize
 
         if env.bf_request_headers["content-type"].to_s.match?(/\bapplication\/json\b/i)
-          request_json = bf_json_dump(bf_protect_data(bf_json_parse(request_body)))
+          request_json = bf_json_parse(request_body).yield_self do |data|
+            bf_json_dump(bf_protect_data(data)) if data
+          end
         end
 
         if env.response_headers
@@ -121,7 +123,9 @@ module Faraday
         end
 
         if env.response_headers && env.response_headers["content-type"].to_s.match?(/\bapplication\/json\b/i)
-          response_json = bf_json_dump(bf_protect_data(bf_json_parse(response_body)))
+          response_json = bf_json_parse(response_body).yield_self do |data|
+            bf_json_dump(bf_protect_data(data)) if data
+          end
         end
 
         lines = [
