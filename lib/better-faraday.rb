@@ -7,10 +7,8 @@ require "faraday"
 require "faraday/error"
 require "faraday/options"
 require "faraday/response"
-require "active_support/core_ext/object/deep_dup"
 require "active_support/core_ext/string/filters"
 require "active_support/core_ext/string/inflections"
-require "active_support/core_ext/object/inclusion"
 
 Module.new do
   def call(environment)
@@ -52,7 +50,10 @@ Module.new do
         response.instance_variable_get(:@bf_request_headers)
     end
   end
-end.tap { |m| Faraday::Adapter::NetHttp.prepend(m) }
+end.tap do |m|
+  Faraday::Adapter::NetHttp.prepend(m)
+  Faraday::Adapter::NetHttpPersistent.prepend(m) if defined?(Faraday::Adapter::NetHttpPersistent)
+end
 
 module Faraday
   class Env
@@ -62,7 +63,7 @@ module Faraday
   class Response
     def assert_status!(code_or_range)
       within_range = if Range === code_or_range
-        status.in?(code_or_range)
+        code_or_range.include?(status)
       else
         status == code_or_range
       end
@@ -237,6 +238,7 @@ module BetterFaraday
   class HTTP401 < HTTP4xx; end
   class HTTP403 < HTTP4xx; end
   class HTTP404 < HTTP4xx; end
+  class HTTP408 < HTTP4xx; end
   class HTTP422 < HTTP4xx; end
   class HTTP429 < HTTP4xx; end
   class HTTP5xx < HTTPError; end
