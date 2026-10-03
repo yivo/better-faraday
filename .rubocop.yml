@@ -1,0 +1,40 @@
+AllCops:
+  Exclude:
+    - 'spec/**/*'
+
+Style/StringLiterals:
+  EnforcedStyle: double_quotes
+
+Metrics/BlockLength:
+  Enabled: false
+
+Metrics/MethodLength:
+  Enabled: false
+
+Layout/IndentationWidth:
+  EnforcedStyleAlignWith: relative_to_receiver
+
+Style/ParallelAssignment:
+  Enabled: false
+
+Metrics/PerceivedComplexity:
+  Enabled: false
+
+Metrics/CyclomaticComplexity:
+  Enabled: false
+
+Style/Documentation:
+  Enabled: false
+
+Metrics/ClassLength:
+  Enabled: false
+
+Layout/EndAlignment:
+  EnforcedStyleAlignWith: start_of_line
+
+Metrics/AbcSize:
+  Enabled: false
+
+Style/MultilineBlockChain:
+  Enabled: false
+
