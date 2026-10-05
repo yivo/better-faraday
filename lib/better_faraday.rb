@@ -188,6 +188,18 @@ module Faraday
 
     private
 
+    # Fallback for missing reason phrases in the response
+    def bf_reason_phrase
+      phrase = reason_phrase.to_s.strip
+      return phrase.upcase unless phrase.empty? || phrase.casecmp("unknown").zero?
+
+      klass = ::Net::HTTPResponse::CODE_TO_OBJ[status.to_s]
+      return "UNKNOWN" unless klass
+
+      # Converts "Net::HTTPUnprocessableEntity" -> "Unprocessable Entity" -> "UNPROCESSABLE ENTITY"
+      klass.name.split("::").last.sub(/\AHTTP/, "").gsub(/([a-z])([A-Z])/, '\1 \2').upcase
+    end
+
     def bf_truncate(str, limit = 2048, omission = "... (truncated)")
       return str if str.length <= limit
 
@@ -238,14 +250,32 @@ module Faraday
       end
       request_headers_hash = {} if request_headers_hash.nil?
 
-      request_body = env.bf_request_body.then { _1.is_a?(String) ? _1 : _1.to_s }
-      request_byte_count = request_body.bytesize
+      # Safely handle bodies that were already parsed by Faraday middlewares (like f.request :json)
+      request_body = env.bf_request_body
+      request_body_json = nil
 
-      request_is_json = request_headers_hash.any? do |k, v|
-        k.to_s.downcase == "content-type" && v.to_s.match?(%r{\b(?:application|text)/json\b}i)
+      if request_body.is_a?(Hash) || request_body.is_a?(Array)
+        request_body_json = bf_json_dump(bf_protect_data(request_body))
+        request_body_string = request_body.to_json
+        request_byte_count = request_body_string.bytesize
+      else
+        request_body_is_json = request_headers_hash.any? do |k, v|
+          k.to_s.casecmp("content-type").zero? && v.to_s.match?(%r{\b(?:application|text)/json\b}i)
+        end
+
+        request_body_string = if request_body.is_a?(String)
+          request_body
+        else
+          request_body.respond_to?(:to_json) ? request_body.to_json : request_body.to_s
+        end
+
+        request_byte_count = request_body_string.bytesize
+
+        if request_body_is_json
+          parsed = bf_json_parse(request_body_string)
+          request_body_json = bf_json_dump(bf_protect_data(parsed)) unless parsed.nil?
+        end
       end
-
-      request_json = bf_json_parse(request_body)&.then { bf_json_dump(bf_protect_data(_1)) } if request_is_json
 
       request_byte_label = request_byte_count == 1 ? "byte" : "bytes"
 
@@ -255,19 +285,37 @@ module Faraday
       end
       response_headers_hash = {} if response_headers_hash.nil?
 
-      response_body = env.body.then { _1.is_a?(String) ? _1 : _1.to_s }
-      response_byte_count = response_body.bytesize
+      # Safely handle bodies that were already parsed by Faraday middlewares (like f.response :json)
+      response_body = env.body
+      response_body_json = nil
 
-      response_is_json = response_headers_hash.any? do |k, v|
-        k.to_s.downcase == "content-type" && v.to_s.match?(%r{\b(?:application|text)/json\b}i)
+      if response_body.is_a?(Hash) || response_body.is_a?(Array)
+        response_body_json = bf_json_dump(bf_protect_data(response_body))
+        response_body_string = response_body.to_json
+        response_byte_count = response_body_string.bytesize
+      else
+        response_body_is_json = response_headers_hash.any? do |k, v|
+          k.to_s.casecmp("content-type").zero? && v.to_s.match?(%r{\b(?:application|text)/json\b}i)
+        end
+
+        response_body_string = if response_body.is_a?(String)
+          response_body
+        else
+          response_body.respond_to?(:to_json) ? response_body.to_json : response_body.to_s
+        end
+
+        response_byte_count = response_body_string.bytesize
+
+        if response_body_is_json
+          parsed = bf_json_parse(response_body_string)
+          response_body_json = bf_json_dump(bf_protect_data(parsed)) unless parsed.nil?
+        end
       end
-
-      response_json = bf_json_parse(response_body)&.then { bf_json_dump(bf_protect_data(_1)) } if response_is_json
 
       response_byte_label = response_byte_count == 1 ? "byte" : "bytes"
 
       lines = [
-        "-- HTTP #{status} #{reason_phrase} --".gsub(/\s+/, " ").upcase,
+        "-- HTTP #{status} #{bf_reason_phrase} --".gsub(/\s+/, " ").upcase,
         "",
         "-- Request URL --",
         env.url.to_s,
@@ -284,10 +332,10 @@ module Faraday
         "",
 
         %[-- Request Body (#{request_byte_count} #{request_byte_label}) --],
-        if !request_json.nil?
-          request_json
+        if !request_body_json.nil?
+          request_body_json
         else
-          bf_dump(request_body)
+          bf_dump(request_body_string)
         end.then { bf_truncate(_1) },
         "",
 
@@ -304,10 +352,10 @@ module Faraday
         "",
 
         %[-- Response Body (#{response_byte_count} #{response_byte_label}) --],
-        if !response_json.nil?
-          response_json
+        if !response_body_json.nil?
+          response_body_json
         else
-          bf_dump(response_body)
+          bf_dump(response_body_string)
         end.then { bf_truncate(_1) },
         ""
       ]
@@ -327,6 +375,7 @@ module Faraday
     end
   end
 end
+
 
 module BetterFaraday
   class HTTPError < Faraday::Error
