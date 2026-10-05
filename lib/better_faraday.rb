@@ -419,7 +419,7 @@ module BetterFaraday
     # Various tokens (access_token, refresh_token, csrf_token, bearer_token, auth_token, or just token)
     /(?:access|refresh|auth|bearer|csrf|authorization)?#{separator}token/i,
     # API keys (api_key, apikey, x_api_key)
-    /api#{separator}key/i,
+    /api#{separator}(?:key|id)/i,
     # Private keys
     /private#{separator}key/i,
     # Crypto mnemonics
